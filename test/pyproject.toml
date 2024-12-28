@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-scholar-spark-observability = "^0.1.0"
+scholar-spark-observability = {version = "0.2.0", source = "test-pypi"}
 
 
 [[tool.poetry.source]]
