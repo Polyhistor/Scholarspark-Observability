@@ -1,6 +1,6 @@
 from opentelemetry import trace, metrics
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter, BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
@@ -59,7 +59,13 @@ class OTelSetup:
         """Setup trace provider and exporters"""
         provider = TracerProvider(resource=resource)
         
-        if exporters:
+        if not exporters:
+            # Default to console exporter for development
+            console_exporter = ConsoleSpanExporter()
+            console_processor = BatchSpanProcessor(console_exporter)
+            provider.add_span_processor(console_processor)
+            logging.info("No exporters configured. Using console exporter for development.")
+        else:
             for exporter_config in exporters:
                 try:
                     otlp_exporter = OTLPSpanExporter(
