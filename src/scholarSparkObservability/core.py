@@ -2,13 +2,82 @@ from opentelemetry import trace, metrics
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as OTLPGRPCSpanExporter
+from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.exporter.zipkin.json import ZipkinExporter
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.trace import Status, StatusCode
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Union
 import logging
+
+class ExporterType:
+    """Supported exporter types"""
+    OTLP_HTTP = "otlp_http"
+    OTLP_GRPC = "otlp_grpc"
+    JAEGER = "jaeger"
+    ZIPKIN = "zipkin"
+    TEMPO = "tempo"
+    CONSOLE = "console"
+
+class ExporterFactory:
+    """Factory for creating different types of exporters"""
+    @staticmethod
+    def create_trace_exporter(exporter_config: Dict[str, Any]):
+        """
+        Create a trace exporter based on configuration
+        
+        Args:
+            exporter_config: Dictionary containing exporter configuration
+                Required keys vary by exporter type:
+                - type: The type of exporter (from ExporterType)
+                - endpoint: URL for OTLP/Zipkin/Tempo exporters
+                - headers: Optional headers for HTTP-based exporters
+                - host/port: Required for Jaeger
+        """
+        exporter_type = exporter_config.get("type", ExporterType.CONSOLE).lower()
+        endpoint = exporter_config.get("endpoint")
+        headers = exporter_config.get("headers", {})
+
+        if exporter_type == ExporterType.OTLP_HTTP:
+            if not endpoint:
+                raise ValueError("OTLP HTTP exporter requires endpoint")
+            return OTLPSpanExporter(endpoint=endpoint, headers=headers)
+            
+        elif exporter_type == ExporterType.OTLP_GRPC:
+            if not endpoint:
+                raise ValueError("OTLP GRPC exporter requires endpoint")
+            return OTLPGRPCSpanExporter(endpoint=endpoint, headers=headers)
+            
+        elif exporter_type == ExporterType.JAEGER:
+            return JaegerExporter(
+                agent_host_name=exporter_config.get("host", "localhost"),
+                agent_port=exporter_config.get("port", 6831),
+            )
+            
+        elif exporter_type == ExporterType.ZIPKIN:
+            if not endpoint:
+                raise ValueError("Zipkin exporter requires endpoint")
+            return ZipkinExporter(
+                endpoint=endpoint,
+                local_node_ipv4=exporter_config.get("local_node_ipv4"),
+                local_node_ipv6=exporter_config.get("local_node_ipv6"),
+            )
+            
+        elif exporter_type == ExporterType.TEMPO:
+            if not endpoint:
+                endpoint = "http://tempo:4318/v1/traces"
+            return OTLPSpanExporter(
+                endpoint=endpoint,
+                headers=headers or {"Content-Type": "application/x-protobuf"}
+            )
+            
+        elif exporter_type == ExporterType.CONSOLE:
+            return ConsoleSpanExporter()
+            
+        else:
+            raise ValueError(f"Unsupported exporter type: {exporter_type}")
 
 class OTelSetup:
     """
@@ -56,28 +125,39 @@ class OTelSetup:
         self._setup_metrics(resource, exporters)
 
     def _setup_tracing(self, resource: Resource, exporters: List[Dict[str, str]]) -> None:
-        """Setup trace provider and exporters"""
+        """
+        Setup trace provider and exporters
+        
+        Args:
+            resource: OpenTelemetry resource with service information
+            exporters: List of exporter configurations. If empty, defaults to console exporter.
+        """
         provider = TracerProvider(resource=resource)
         
         if not exporters:
-            # Default to console exporter for development
-            console_exporter = ConsoleSpanExporter()
-            console_processor = BatchSpanProcessor(console_exporter)
+            # Default to console exporter
+            console_processor = BatchSpanProcessor(ConsoleSpanExporter())
             provider.add_span_processor(console_processor)
             logging.info("No exporters configured. Using console exporter for development.")
         else:
+            success = False
             for exporter_config in exporters:
                 try:
-                    otlp_exporter = OTLPSpanExporter(
-                        endpoint=exporter_config.get("endpoint"),
-                        headers=exporter_config.get("headers", {})
-                    )
-                    processor = BatchSpanProcessor(otlp_exporter)
+                    exporter = ExporterFactory.create_trace_exporter(exporter_config)
+                    processor = BatchSpanProcessor(exporter)
                     provider.add_span_processor(processor)
+                    logging.info(f"Successfully configured {exporter_config.get('type')} exporter")
+                    success = True
                 except Exception as e:
-                    logging.error(f"Failed to setup trace exporter: {str(e)}")
+                    logging.error(f"Failed to setup exporter {exporter_config.get('type')}: {str(e)}")
                     if self.debug:
                         raise
+            
+            # If all exporters failed, fall back to console exporter
+            if not success:
+                console_processor = BatchSpanProcessor(ConsoleSpanExporter())
+                provider.add_span_processor(console_processor)
+                logging.warning("All exporters failed. Falling back to console exporter.")
         
         trace.set_tracer_provider(provider)
         self.provider = provider
