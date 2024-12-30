@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "scholar-spark-observability"
-version = "0.7.0"
+version = "0.7.1"
 description = "A Python package for monitoring and observability in Apache Spark applications"
 authors = [ "Pouya Ataei <pouya.ataei.7@gmail.com>",]
 readme = "README.md"

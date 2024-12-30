@@ -43,13 +43,20 @@ def update_version(version_type="minor"):
     # Update __init__.py
     root = get_project_root()
     init_path = root / "src" / "scholarSparkObservability" / "__init__.py"
-    with open(init_path, "r") as f:
-        content = f.read()
     
-    content = content.replace(f'__version__ = "{current_version}"', f'__version__ = "{new_version}"')
+    with open(init_path, "r") as f:
+        lines = f.readlines()
     
     with open(init_path, "w") as f:
-        f.write(content)
+        for line in lines:
+            if line.startswith("__version__"):
+                f.write(f'__version__ = "{new_version}"\n')
+            else:
+                f.write(line)
+    
+    print(f"Updated version from {current_version} to {new_version} in:")
+    print(f"  - pyproject.toml")
+    print(f"  - src/scholarSparkObservability/__init__.py")
     
     return new_version
 
