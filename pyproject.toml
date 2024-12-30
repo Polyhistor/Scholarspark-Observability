@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "scholar-spark-observability"
-version = "0.6.0"
+version = "0.7.0"
 description = "A Python package for monitoring and observability in Apache Spark applications"
 authors = [ "Pouya Ataei <pouya.ataei.7@gmail.com>",]
 readme = "README.md"
@@ -24,11 +24,11 @@ opentelemetry-exporter-otlp-proto-http = "^1.20.0"
 opentelemetry-exporter-jaeger = "^1.20.0"
 opentelemetry-exporter-zipkin = "^1.20.0"
 
+[tool.poetry.extras]
+jaeger = [ "opentelemetry-exporter-jaeger",]
+zipkin = [ "opentelemetry-exporter-zipkin",]
+
 [tool.poetry.group.dev.dependencies]
 toml = "^0.10.2"
 pytest = "^8.0.0"
 pytest-cov = "^4.1.0"
-
-[tool.poetry.extras]
-jaeger = ["opentelemetry-exporter-jaeger"]
-zipkin = ["opentelemetry-exporter-zipkin"]
