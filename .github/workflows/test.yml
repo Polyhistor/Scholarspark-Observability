@@ -1,27 +1,27 @@
-name: Test Optional Dependencies
+name: Run Tests
 
 on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        extras: [[], ["jaeger"], ["zipkin"], ["all"]]
     
     steps:
     - uses: actions/checkout@v2
+    
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: '3.8'
+    
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+    
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install poetry
         poetry install
-        if [ "${{ matrix.extras }}" != "[]" ]; then
-          poetry install --extras "${{ matrix.extras }}"
-        fi
+        poetry install --extras "all"
+    
     - name: Run tests
-      run: poetry run pytest 
+      run: poetry run pytest -v --cov=scholarSparkObservability --cov-report=term-missing 
