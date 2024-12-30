@@ -51,19 +51,27 @@ class ExporterFactory:
             return OTLPGRPCSpanExporter(endpoint=endpoint, headers=headers)
             
         elif exporter_type == ExporterType.JAEGER:
-            return JaegerExporter(
-                agent_host_name=exporter_config.get("host", "localhost"),
-                agent_port=exporter_config.get("port", 6831),
-            )
+            try:
+                return JaegerExporter(
+                    agent_host_name=exporter_config.get("host", "localhost"),
+                    agent_port=exporter_config.get("port", 6831),
+                )
+            except ImportError:
+                logging.error("Jaeger exporter not installed. Install with: pip install opentelemetry-exporter-jaeger")
+                raise
             
         elif exporter_type == ExporterType.ZIPKIN:
             if not endpoint:
                 raise ValueError("Zipkin exporter requires endpoint")
-            return ZipkinExporter(
-                endpoint=endpoint,
-                local_node_ipv4=exporter_config.get("local_node_ipv4"),
-                local_node_ipv6=exporter_config.get("local_node_ipv6"),
-            )
+            try:
+                return ZipkinExporter(
+                    endpoint=endpoint,
+                    local_node_ipv4=exporter_config.get("local_node_ipv4"),
+                    local_node_ipv6=exporter_config.get("local_node_ipv6"),
+                )
+            except ImportError:
+                logging.error("Zipkin exporter not installed. Install with: pip install opentelemetry-exporter-zipkin")
+                raise
             
         elif exporter_type == ExporterType.TEMPO:
             if not endpoint:
