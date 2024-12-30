@@ -14,7 +14,7 @@ class OTelSetup:
     Users should provide their own configured exporters.
     """
     _instance = None
-    
+
     def __init__(self, 
                 service_name: str,
                 service_version: str,
